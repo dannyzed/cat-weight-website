@@ -1,0 +1,17 @@
+{% from "_formhelpers.html" import render_field %}
+<form method=post>
+  <dl>
+    {{ render_field(form.name) }}
+    {{ render_field(form.weight) }}
+  </dl>
+  <p><input type=submit value=Submit>
+</form>
+<table>
+{% for item in data %}
+<tr>
+    <td>{{item.time}}</td>
+    <td>{{item.name}}</td>
+    <td>{{item.weight}}</td>
+</tr>
+{% endfor %}
+</table>
