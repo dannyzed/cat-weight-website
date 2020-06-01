@@ -36,20 +36,23 @@ class WeightForm(Form):
 
 @app.route('/submit', methods=['GET', 'POST'])
 def register():
-    ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
-    valid = False
-    if ip.startswith('127.0.0.1') or ip.startswith('192.168'):
-        valid = True
-    if not valid:
-        return "Error"
-    form = WeightForm(request.form)
-    data = db_session.query(WeightEntry).order_by(WeightEntry.time.desc()).limit(10)
-    if request.method == 'POST' and form.validate():
-        weight = WeightEntry(name=form.name.data, weight=form.weight.data, time=datetime.now())
-        db_session.add(weight)
-        db_session.commit()
+    try:
+        ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
+        valid = False
+        if ip.startswith('127.0.0.1') or ip.startswith('192.168'):
+            valid = True
+        if not valid:
+            return "Error"
+        form = WeightForm(request.form)
+        data = db_session.query(WeightEntry).order_by(WeightEntry.time.desc()).limit(10)
+        if request.method == 'POST' and form.validate():
+            weight = WeightEntry(name=form.name.data, weight=form.weight.data, time=datetime.now())
+            db_session.add(weight)
+            db_session.commit()
+            return render_template('weight.html', form=form, data=data)
         return render_template('weight.html', form=form, data=data)
-    return render_template('weight.html', form=form, data=data)
+    except Exception as e:
+        return str(e)
 
 @app.route('/')
 def home():
