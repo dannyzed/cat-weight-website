@@ -52,6 +52,7 @@ def register():
             return render_template('weight.html', form=form, data=data)
         return render_template('weight.html', form=form, data=data)
     except Exception as e:
+        db_session.rollback()
         return str(e)
 
 @app.route('/')
