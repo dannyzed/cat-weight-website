@@ -6,11 +6,17 @@ from sqlalchemy import Table
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 import os
+from app.gp import make_plots
+import asyncio
+
+loop = asyncio.get_event_loop()
 
 if 'FLASK_DEBUG' in os.environ:
     SQL_TABLE = "weight_development"
 else:
     SQL_TABLE = "weight"
+
+MAX_RETRY = 5
 
 Base = declarative_base()
 
@@ -18,6 +24,17 @@ db = sqlalchemy.create_engine(r'postgresql+psycopg2://{}:{}@{}:5432/weight'.form
 Session = sessionmaker(bind=db)
 
 db_session = Session()
+
+def run_query(f, attempts=5):
+    while attempts > 0:
+        attempts -= 1
+        try:
+            return f() # "break" if query was successful and return any results
+        except sqlalchemy.exc.DBAPIError as exc:
+            if attempts > 0 and exc.connection_invalidated:
+                db_session.rollback()
+            else:
+                raise
 
 class WeightEntry(Base):
     __tablename__ = SQL_TABLE
@@ -44,11 +61,19 @@ def register():
         if not valid:
             return "Error"
         form = WeightForm(request.form)
-        data = db_session.query(WeightEntry).order_by(WeightEntry.time.desc()).limit(10)
+
+        def query_fn():
+            return db_session.query(WeightEntry).order_by(WeightEntry.time.desc()).limit(10)
+        
+        data = run_query(query_fn)
+
         if request.method == 'POST' and form.validate():
             weight = WeightEntry(name=form.name.data, weight=form.weight.data, time=datetime.now())
-            db_session.add(weight)
-            db_session.commit()
+
+            def commit_fn():
+                db_session.add(weight)
+                db_session.commit()
+            run_query(commit_fn)
             return render_template('weight.html', form=form, data=data)
         return render_template('weight.html', form=form, data=data)
     except Exception as e:
@@ -58,3 +83,8 @@ def register():
 @app.route('/')
 def home():
     return render_template("dashboard.html")
+
+@app.route('/plot')
+def plot():
+    loop.run_until_complete(make_plots())
+    return 'Done'
