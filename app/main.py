@@ -6,7 +6,6 @@ from sqlalchemy import Table
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 import os
-from app.gp import make_plots
 import asyncio
 import pandas as pd
 from sklearn.gaussian_process import GaussianProcessRegressor
