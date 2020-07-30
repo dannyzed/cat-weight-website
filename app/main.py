@@ -23,7 +23,7 @@ def gp_line_plot(pred, std, df):
 
     plt.ylabel('Weight [kg]')
 
-def gp_distribution_plot(samples):
+def gp_distribution_plot(samples, time, target_weight, current_weight):
     weight_differential = samples[1, :] - samples[0, :]
     
     kde = KernelDensity(kernel='gaussian', bandwidth=0.01).fit(weight_differential.reshape(-1, 1))
@@ -42,7 +42,28 @@ def gp_distribution_plot(samples):
     loss_prob = np.trapz(plot_x[loss_idx], plot_y[loss_idx])
     full_prob = np.trapz(plot_x, plot_y)
 
-    plt.text(np.min(plot_x), np.max(plot_y) * 0.9, 'Weight loss chance {:.2f} %'.format(loss_prob / full_prob * 100))
+    weight_loss = np.trapz(plot_x, plot_x * plot_y / full_prob)
+    stdev = np.sqrt(np.abs(np.trapz(plot_x, (plot_x - weight_loss)**2 * plot_y) / full_prob))
+
+    plt.text(0.1, 0.9, 'Weight loss: {:.2f} $\pm$ {:.2f} kg'.format(np.abs(weight_loss), stdev*2),
+             transform=plt.gca().transAxes)
+
+    total_time = time[-1] - time[0]
+
+    delta_month = total_time / np.timedelta64(2628000, 's')
+
+    weight_left = float(target_weight) - current_weight
+
+    months_left = weight_left * (delta_month / weight_loss)
+    months_left_high = weight_left * (delta_month / (weight_loss + 2*stdev))
+    months_left_low = weight_left * (delta_month / (weight_loss - 2*stdev))
+
+    plt.text(0.7, 0.9, 'Current: {:.2f} kg, Target: {:.2f} kg'.format(current_weight, float(target_weight)),
+             transform=plt.gca().transAxes)
+
+    plt.text(0.7, 0.7, 'Months left: {:.2f} ({:.2f} - {:.2f})'.format(months_left, months_left_low, months_left_high),
+             transform=plt.gca().transAxes)
+
     plt.xlabel('Weight [kg]')
 
 
@@ -92,11 +113,11 @@ async def make_plots():
 
     plt.figure(figsize=(24, 4))
     plt.subplot(1, 2, 1)
-    gp_distribution_plot(como_gp_samples)
+    gp_distribution_plot(como_gp_samples, como.index.values, os.environ['COMO_TARGET'], como_pred[-1])
     plt.title('Co-mo')
 
     plt.subplot(1, 2, 2)
-    gp_distribution_plot(fig_gp_samples)
+    gp_distribution_plot(fig_gp_samples, fig.index.values, os.environ['FIG_TARGET'], fig_pred[-1])
 
     plt.title('Fig')
     plt.tight_layout()
